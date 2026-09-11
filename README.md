@@ -31,6 +31,7 @@ MLOps-CryptoPricePrediction/
 ├── LICENSE
 ├── README.md
 └── requirements.txt
+```
 
 ## How to Run in GitHub Codespaces
 
