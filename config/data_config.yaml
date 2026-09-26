@@ -1,0 +1,18 @@
+data_source:
+  provider: Binance Public Market Data API
+  symbol: BTCUSDT
+  interval: 1h
+
+ingestion:
+  method: HTTP GET
+  frequency: every 1 hour
+  raw_output: data/raw/btc_usdt_1h_raw.csv
+
+processing:
+  cleaned_output: data/processed/btc_usdt_1h_clean.csv
+  feature_output: data/processed/btc_usdt_1h_features.csv
+
+versioning:
+  tool: DVC
+  raw_data: data/raw/
+  processed_data: data/processed/

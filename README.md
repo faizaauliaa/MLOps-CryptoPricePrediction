@@ -33,21 +33,29 @@ MLOps-CryptoPricePrediction/
 └── requirements.txt
 ```
 
-## How to Run in GitHub Codespaces
+```
+## Data Versioning Plan
 
-1. Open this repository on GitHub.
-2. Click **Code** and select **Codespaces**.
-3. Create a new Codespace or open an existing Codespace.
-4. The project uses Python 3.11.
-5. Project dependencies are installed automatically from `requirements.txt`.
+Data pada project ini direncanakan menggunakan DVC (Data Version Control)
+untuk melakukan versioning terhadap dataset yang bersifat dinamis.
 
-To verify the Python environment, run:
+Pembagian versioning:
+- Git digunakan untuk source code, konfigurasi, dan dokumentasi.
+- DVC digunakan untuk melacak versi dataset pada `data/raw/` dan
+  `data/processed/`.
 
-    python --version
+Dataset yang akan dikelola:
+- `data/raw/btc_usdt_1h_raw.csv`
+- `data/processed/btc_usdt_1h_clean.csv`
+- `data/processed/btc_usdt_1h_features.csv`
 
-The expected output is:
-
-    Python 3.11.16
+Pola pembaruan data:
+1. Data terbaru diambil dari Binance Public Market Data API.
+2. Data disimpan pada `data/raw/`.
+3. Data melalui proses cleaning dan feature engineering.
+4. Hasil pemrosesan disimpan pada `data/processed/`.
+5. Perubahan dataset akan dilacak menggunakan DVC pada tahap implementasi
+   berikutnya.
 
 ## Initial EDA
 
@@ -65,3 +73,10 @@ The notebook focuses on:
 This project follows the GitHub Flow branching strategy.
 
 The `main` branch contains the stable version of the project. New development is performed in feature branches and merged into `main` through Pull Requests after validation.
+
+## Dataset Version
+
+Contoh versi dataset:
+- v1.0: pengambilan data awal.
+- v1.1: pembaruan data berikutnya.
+- v1.2: pembaruan data berikutnya.
