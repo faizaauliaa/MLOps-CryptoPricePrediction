@@ -222,3 +222,17 @@ The dynamic ingestion process was executed multiple times to simulate periodic d
 The preprocessing process then selected the latest raw dataset, performed the required preprocessing steps, and generated the processed dataset.
 
 The implementation prepares the project for future development of a continuous training pipeline where newly available data can be processed and used for model retraining.
+
+## Data Versioning dengan DVC
+
+Proyek ini menggunakan Data Version Control (DVC) untuk melacak perubahan dataset BTC/USDT yang diperoleh melalui Binance API. DVC digunakan bersama Git agar versi dataset dapat dikelola dan dibandingkan tanpa menyimpan seluruh isi dataset sebagai file biasa di Git.
+
+### Alur Penambahan Versi Data
+
+1. Jalankan `python src/ingest_data.py` untuk mengambil data terbaru. Data disimpan sebagai file CSV bertimestamp di folder `data/raw/`.
+2. Jalankan `dvc add data/raw` untuk memperbarui metadata dataset pada DVC.
+3. Jalankan `git add data/raw.dvc data/.gitignore` dan buat commit untuk menyimpan perubahan metadata.
+4. Gunakan `dvc status` untuk memeriksa status dataset.
+5. Gunakan `dvc diff <commit_awal> <commit_baru>` untuk membandingkan perubahan antara dua versi dataset.
+
+Pada implementasi LK-05, DVC berhasil mendeteksi penambahan file `btc_usdt_1h_20261011_160749.csv` dibandingkan versi sebelumnya. Penyimpanan remote DVC belum dikonfigurasi.
