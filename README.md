@@ -236,3 +236,116 @@ DVC digunakan bersama Git untuk melacak perubahan dataset BTC/USDT yang diperole
 5. Gunakan `dvc diff <commit_awal> <commit_baru>` untuk membandingkan dua versi dataset.
 
 Pada pengujian LK-05, DVC mendeteksi penambahan file `btc_usdt_1h_20261011_160749.csv` dibandingkan versi sebelumnya. Penyimpanan remote DVC belum dikonfigurasi.
+
+## Model Training and Experiment Tracking with MLflow
+
+This project uses LightGBM to predict the next-hour BTC/USDT closing price. MLflow is used to track model training experiments, compare evaluation metrics, store model artifacts, and register the selected model.
+
+### Training Dataset
+
+The training process uses the feature-engineered dataset:
+
+`data/processed/btc_usdt_1h_features.csv`
+
+The dataset contains 75 rows and 22 columns. The target variable is `target_close_next`, representing the closing price for the next one-hour period.
+
+The dataset is split chronologically into training and testing sets to preserve the time-series order and avoid randomly mixing observations from different time periods.
+
+### Model Training
+
+The model is implemented using `LGBMRegressor` from the LightGBM library. The training script is located at:
+
+`train.py`
+
+The training process consists of:
+
+1. Loading the feature-engineered dataset.
+2. Selecting input features and the target variable.
+3. Splitting the dataset chronologically.
+4. Training models with different hyperparameter configurations.
+5. Evaluating model performance using RMSE, MAE, and MAPE.
+6. Logging parameters, metrics, and model artifacts to MLflow.
+7. Comparing experiments to identify the best-performing model.
+
+### MLflow Experiment Tracking
+
+The MLflow experiment is named:
+
+`BTCUSDT-LightGBM-Regression`
+
+Three successful experiments were conducted with different hyperparameter configurations.
+
+| Experiment | `n_estimators` | `learning_rate` | `num_leaves` |
+|---|---:|---:|---:|
+| Experiment 1 | 100 | 0.05 | 15 |
+| Experiment 2 | 200 | 0.05 | 31 |
+| Experiment 3 | 300 | 0.03 | 31 |
+
+### Evaluation Results
+
+Model performance is evaluated using the following metrics:
+
+- **RMSE:** Root Mean Squared Error.
+- **MAE:** Mean Absolute Error.
+- **MAPE:** Mean Absolute Percentage Error.
+
+Lower values indicate lower prediction errors.
+
+| Experiment | RMSE | MAE | MAPE |
+|---|---:|---:|---:|
+| Experiment 1 | 521.2710 | 354.3749 | 0.4393% |
+| Experiment 2 | 596.3409 | 451.8453 | 0.5596% |
+| Experiment 3 | 584.5018 | 429.6301 | 0.5322% |
+
+Experiment 1 achieved the lowest RMSE, MAE, and MAPE among the three successful experiments. Therefore, its hyperparameter configuration was selected as the best-performing configuration in this evaluation.
+
+### Registered Model
+
+The selected model was registered in MLflow Model Registry with the following metadata:
+
+- **Model name:** `BTCUSDT-LightGBM-Best`
+- **Model version:** `1`
+- **Source run:** `LightGBM-Experiment-1`
+- **Experiment:** `BTCUSDT-LightGBM-Regression`
+
+The selected model uses these parameters:
+
+| Parameter | Value |
+|---|---:|
+| `n_estimators` | 100 |
+| `learning_rate` | 0.05 |
+| `num_leaves` | 15 |
+| `random_state` | 42 |
+| `verbosity` | -1 |
+
+Model registration provides a record of the selected model version and its source experiment.
+
+### How to Run
+
+Install the required packages:
+
+```bash
+pip install mlflow lightgbm pandas scikit-learn numpy
+```
+
+Run the training script:
+
+```bash
+python train.py
+```
+
+Launch the MLflow UI:
+
+```bash
+mlflow ui --host 0.0.0.0 --port 5000
+```
+
+In GitHub Codespaces, open port `5000` from the Ports tab to access the MLflow interface.
+
+### Limitations
+
+The current dataset contains only 75 rows. The results should therefore be treated as an initial evaluation rather than evidence of general performance across different market conditions. Further evaluation with a larger historical dataset is recommended.
+
+### Summary
+
+LightGBM model training and MLflow experiment tracking have been implemented to support model evaluation and version management. Three successful experiments were compared, and the best-performing configuration was registered as `BTCUSDT-LightGBM-Best`, version 1. This implementation provides a foundation for more systematic model experimentation and future improvements to the cryptocurrency prediction pipeline.
