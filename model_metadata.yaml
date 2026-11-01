@@ -1,0 +1,27 @@
+model:
+  name: BTCUSDT-LightGBM-Best
+  version: 1
+  alias: production
+  framework: LightGBM
+  task: regression
+  description: Prediksi harga penutupan BTC/USDT satu jam berikutnya
+
+source:
+  experiment_name: BTCUSDT-LightGBM-Regression
+  run_name: LightGBM-Experiment-1
+  dataset: data/processed/btc_usdt_1h_features.csv
+
+parameters:
+  n_estimators: 100
+  learning_rate: 0.05
+  num_leaves: 15
+  random_state: 42
+  verbosity: -1
+
+metrics:
+  rmse: 521.2710
+  mae: 354.3749
+  mape_percent: 0.4393
+
+selection:
+  reason: Dipilih karena memiliki nilai RMSE, MAE, dan MAPE lebih rendah dibandingkan model alternatif.
