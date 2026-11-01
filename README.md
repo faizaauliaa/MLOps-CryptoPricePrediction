@@ -1,14 +1,24 @@
 # MLOps-CryptoPricePrediction
 
-Continuous training system for cryptocurrency price prediction using dynamic market data.
+A continuous training system for cryptocurrency price prediction using dynamic market data, automated preprocessing, experiment tracking, and model versioning.
 
-## Project Goal
+## Project Overview
 
-This project aims to develop a machine learning system for cryptocurrency price prediction that can adapt to dynamic market data through a continuous training approach.
+This project aims to build a machine learning system for predicting BTC/USDT prices that can adapt to changing market data through a continuous training workflow.
 
-The project focuses on building a basic MLOps infrastructure to support data processing, model development, and future model retraining.
+The project establishes an MLOps foundation covering data ingestion, preprocessing, feature engineering, model development, experiment tracking, model registration, and inference. Git is used to manage source code and documentation, while DVC tracks dataset and model metadata.
 
-## Directory Structure
+## Project Goals
+
+- Retrieve cryptocurrency market data dynamically from the Binance Public Market Data API.
+- Automate data preprocessing and feature engineering.
+- Develop and evaluate machine learning models for price prediction.
+- Track experiments, parameters, metrics, and model artifacts using MLflow.
+- Manage model versions and identify the model currently used for inference.
+- Track dataset and model metadata with DVC to support reproducibility and data lineage.
+- Prepare the project for future continuous training and monitoring.
+
+## Repository Structure
 
 ```text
 MLOps-CryptoPricePrediction/
@@ -44,184 +54,195 @@ MLOps-CryptoPricePrediction/
 └── requirements.txt
 ```
 
-## Data Versioning Plan
+Additional experiment and model-management files may be generated during development, including MLflow tracking files, DVC metadata files, and model evaluation scripts.
 
-Data pada project ini direncanakan menggunakan DVC (Data Version Control) untuk melakukan versioning terhadap dataset yang bersifat dinamis.
+## Data Sources
 
-Pembagian versioning:
+The project uses BTC/USDT market data retrieved from the Binance Public Market Data API.
 
-- Git digunakan untuk source code, konfigurasi, dan dokumentasi.
-- DVC digunakan untuk melacak versi dataset pada `data/raw/` dan `data/processed/`.
+| Configuration | Value |
+|---|---|
+| Trading pair | BTCUSDT |
+| Data interval | 1 hour |
+| Initial ingestion size | 100 records |
+| Data format | CSV |
+| Raw data directory | `data/raw/` |
+| Processed data directory | `data/processed/` |
 
-Dataset yang akan dikelola:
+The dataset contains OHLCV market information and derived features used for model training and prediction.
 
-- `data/raw/btc_usdt_1h_raw.csv`
-- `data/raw/btc_usdt_1h_YYYYMMDD_HHMMSS.csv`
-- `data/processed/btc_usdt_1h_clean.csv`
-- `data/processed/btc_usdt_1h_features.csv`
-- `data/processed/btc_usdt_1h_preprocessed.csv`
+## Data Ingestion
 
-Pola pembaruan data:
-
-1. Data terbaru diambil dari Binance Public Market Data API.
-2. Data disimpan pada `data/raw/`.
-3. Setiap proses ingestion menghasilkan file baru dengan timestamp pada nama file sehingga data sebelumnya tidak tertimpa.
-4. Data terbaru melalui proses preprocessing.
-5. Hasil preprocessing disimpan pada `data/processed/`.
-6. Data yang telah diproses dapat digunakan untuk tahap feature engineering dan pengembangan model.
-7. Perubahan dataset akan dilacak menggunakan DVC pada tahap implementasi berikutnya.
-
-## Initial EDA
-
-The `notebooks/01_initial_eda.ipynb` notebook contains the initial exploratory data analysis preparation for the cryptocurrency price prediction project.
-
-The notebook focuses on:
-
-- Understanding the structure of cryptocurrency market data.
-- Inspecting data quality and completeness.
-- Identifying initial patterns in OHLCV data.
-- Preparing considerations for further feature engineering and model development.
-
-## Development Workflow
-
-This project follows the GitHub Flow branching strategy.
-
-The `main` branch contains the stable version of the project. New development is performed in feature branches and merged into `main` through Pull Requests after validation.
-
-The development workflow consists of:
-
-1. Creating a feature branch for each development task.
-2. Implementing and testing the required functionality.
-3. Committing the changes to the feature branch.
-4. Pushing the branch to GitHub.
-5. Creating a Pull Request.
-6. Merging the Pull Request into `main` after validation.
-
-## Dynamic Data Ingestion
-
-The dynamic data ingestion process is implemented in:
+Dynamic data ingestion is implemented in:
 
 `src/ingest_data.py`
 
-The script retrieves the latest BTC/USDT market data from the Binance Public Market Data API.
+The script retrieves the latest BTC/USDT market data and saves it in the `data/raw/` directory. Each execution creates a timestamped file to preserve previously collected data.
 
-Configuration used:
+Filename pattern:
 
-- Symbol: `BTCUSDT`
-- Interval: `1h`
-- Number of records: `100`
+```text
+btc_usdt_1h_YYYYMMDD_HHMMSS.csv
+```
 
-The retrieved data is stored in the `data/raw/` directory.
+Example:
 
-To prevent previous datasets from being overwritten, each ingestion process generates a filename using the current timestamp.
+```text
+data/raw/btc_usdt_1h_20260926_231644.csv
+```
 
-The filename follows the pattern:
-
-`btc_usdt_1h_YYYYMMDD_HHMMSS.csv`
-
-Example files generated during testing:
-
-- `data/raw/btc_usdt_1h_20260926_231644.csv`
-- `data/raw/btc_usdt_1h_20260926_231801.csv`
-
-Running the ingestion script:
+Run the ingestion script:
 
 ```bash
 python src/ingest_data.py
 ```
 
-Each execution retrieves the latest data and creates a new raw dataset.
+## Data Preprocessing
 
-## Automated Data Preprocessing
-
-The automated preprocessing process is implemented in:
+Automated preprocessing is implemented in:
 
 `src/preprocess.py`
 
-The script automatically identifies the latest raw dataset generated by the dynamic ingestion process.
+The script identifies the latest raw dataset and performs the following operations:
 
-The preprocessing process consists of:
+1. Reads the latest raw dataset.
+2. Removes duplicate records.
+3. Converts `open_time` and `close_time` from Unix timestamp milliseconds into datetime values.
+4. Converts numerical columns to appropriate numeric types.
+5. Removes rows containing missing values.
+6. Sorts records by `open_time`.
+7. Saves the processed dataset to `data/processed/`.
 
-1. Reading the latest raw dataset.
-2. Removing duplicate records.
-3. Converting `open_time` and `close_time` from Unix timestamp milliseconds into datetime format.
-4. Converting numerical columns into numeric data types.
-5. Removing rows containing missing values.
-6. Sorting the data based on `open_time`.
-7. Saving the preprocessed dataset to `data/processed/`.
-
-The resulting file is:
-
-`data/processed/btc_usdt_1h_preprocessed.csv`
-
-The preprocessing script can be executed using:
+Run preprocessing:
 
 ```bash
 python src/preprocess.py
 ```
 
-The preprocessing result from the latest ingestion contains:
+The resulting dataset is saved as:
 
-- 100 rows
-- 12 columns
-- 0 missing values
+```text
+data/processed/btc_usdt_1h_preprocessed.csv
+```
 
-## Data Processing Flow
+The latest reported preprocessing output contains 100 rows, 12 columns, and no missing values.
 
-The current data processing flow is:
+## Data Processing Workflow
 
 ```text
 Binance Public Market Data API
-            |
-            v
-    Dynamic Data Ingestion
+             |
+             v
+     Dynamic Ingestion
       src/ingest_data.py
-            |
-            v
-        data/raw/
-            |
-            v
+             |
+             v
+         data/raw/
+             |
+             v
      Latest Raw Dataset
-            |
-            v
+             |
+             v
        Preprocessing
-      src/preprocess.py
-            |
-            v
+       src/preprocess.py
+             |
+             v
       data/processed/
-            |
-            v
-    Feature Engineering
-            |
-            v
-    Prediction Dataset
+             |
+             v
+     Feature Engineering
+             |
+             v
+     Training Dataset
+             |
+             v
+     Model Training
+             |
+             v
+   MLflow Tracking and Registry
+             |
+             v
+       Model Inference
 ```
 
-## Dataset Version
+## Data Versioning with DVC
 
-Contoh versi dataset:
+DVC is used alongside Git to track changes to datasets and model metadata.
 
-- v1.0: pengambilan data awal.
-- v1.1: pembaruan data berikutnya.
-- v1.2: pembaruan data berikutnya.
-- v1.3: data hasil dynamic ingestion dan preprocessing.
+Git manages source code, configuration, and documentation. DVC tracks data artifacts and their metadata, allowing dataset versions to be connected to the corresponding development and model history.
 
-Versi dataset berikutnya dapat digunakan untuk mencatat perubahan data yang diperoleh dari proses ingestion secara berkala.
+### Dataset Versioning Workflow
 
-## LK04 Implementation
+1. Run `python src/ingest_data.py` to retrieve new market data.
+2. Run `dvc add data/raw` to update the raw dataset metadata.
+3. Stage the DVC metadata and relevant `.gitignore` changes.
+4. Commit the metadata changes to Git.
+5. Run `dvc status` to check the dataset tracking status.
+6. Use `dvc diff <commit_before> <commit_after>` to compare dataset versions.
 
-LK04 focuses on implementing dynamic data ingestion and automated preprocessing.
+During a previous versioning test, DVC detected the addition of a timestamped dataset file:
 
-The implementation consists of two main scripts:
+`btc_usdt_1h_20261011_160749.csv`
 
-- `src/ingest_data.py` for retrieving the latest BTC/USDT data from Binance.
-- `src/preprocess.py` for preprocessing the latest raw dataset.
+A DVC remote storage location has not yet been configured.
 
-The dynamic ingestion process was executed multiple times to simulate periodic data retrieval. Each execution generated a new timestamped raw dataset without overwriting the previous file.
+## Exploratory Data Analysis
 
-The preprocessing process then selected the latest raw dataset, performed the required preprocessing steps, and generated the processed dataset.
+The notebook `notebooks/01_initial_eda.ipynb` contains the initial exploratory data analysis.
 
-The implementation prepares the project for future development of a continuous training pipeline where newly available data can be processed and used for model retraining.
+The analysis focuses on:
+
+- Understanding the structure of cryptocurrency market data.
+- Inspecting data quality and completeness.
+- Identifying patterns in OHLCV data.
+- Preparing considerations for feature engineering and model development.
+
+## Model Development and Experiment Tracking
+
+The project uses MLflow to track model experiments, parameters, evaluation metrics, and model artifacts.
+
+The current regression model is a LightGBM Regressor trained to predict the next-hour BTC/USDT closing price.
+
+The experiment is registered under:
+
+`BTCUSDT-LightGBM-Regression`
+
+The model registry name is:
+
+`BTCUSDT-LightGBM-Best`
+
+### Model Version Comparison
+
+Multiple model configurations were evaluated and registered to maintain a version history.
+
+| Model Version | `n_estimators` | `learning_rate` | `num_leaves` | RMSE | MAE | MAPE |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 100 | 0.05 | 15 | 521.2710 | 354.3749 | 0.4393% |
+| 4 | 200 | 0.05 | 31 | 596.3409 | 451.8453 | 0.5596% |
+
+Version 1 was selected for production inference because it achieved lower RMSE, MAE, and MAPE than the alternative configuration.
+
+## Model Registry and Production Alias
+
+The selected model is registered in MLflow Model Registry as:
+
+| Property | Value |
+|---|---|
+| Model name | `BTCUSDT-LightGBM-Best` |
+| Selected version | `1` |
+| Production alias | `production` |
+| Champion alias | `champion` |
+| Model framework | LightGBM |
+
+MLflow 3.17.1 uses model aliases to identify model versions for deployment workflows. The `production` alias points to version 1 and is used by the inference code to load the active model.
+
+Model URI:
+
+```text
+models:/BTCUSDT-LightGBM-Best@production
+```
+
+The model metadata is documented in `model_metadata.yaml` and tracked through DVC using `model_metadata.yaml.dvc`.
 
 ## Data Versioning dengan DVC
 
@@ -236,116 +257,3 @@ DVC digunakan bersama Git untuk melacak perubahan dataset BTC/USDT yang diperole
 5. Gunakan `dvc diff <commit_awal> <commit_baru>` untuk membandingkan dua versi dataset.
 
 Pada pengujian LK-05, DVC mendeteksi penambahan file `btc_usdt_1h_20261011_160749.csv` dibandingkan versi sebelumnya. Penyimpanan remote DVC belum dikonfigurasi.
-
-## Model Training and Experiment Tracking with MLflow
-
-This project uses LightGBM to predict the next-hour BTC/USDT closing price. MLflow is used to track model training experiments, compare evaluation metrics, store model artifacts, and register the selected model.
-
-### Training Dataset
-
-The training process uses the feature-engineered dataset:
-
-`data/processed/btc_usdt_1h_features.csv`
-
-The dataset contains 75 rows and 22 columns. The target variable is `target_close_next`, representing the closing price for the next one-hour period.
-
-The dataset is split chronologically into training and testing sets to preserve the time-series order and avoid randomly mixing observations from different time periods.
-
-### Model Training
-
-The model is implemented using `LGBMRegressor` from the LightGBM library. The training script is located at:
-
-`train.py`
-
-The training process consists of:
-
-1. Loading the feature-engineered dataset.
-2. Selecting input features and the target variable.
-3. Splitting the dataset chronologically.
-4. Training models with different hyperparameter configurations.
-5. Evaluating model performance using RMSE, MAE, and MAPE.
-6. Logging parameters, metrics, and model artifacts to MLflow.
-7. Comparing experiments to identify the best-performing model.
-
-### MLflow Experiment Tracking
-
-The MLflow experiment is named:
-
-`BTCUSDT-LightGBM-Regression`
-
-Three successful experiments were conducted with different hyperparameter configurations.
-
-| Experiment | `n_estimators` | `learning_rate` | `num_leaves` |
-|---|---:|---:|---:|
-| Experiment 1 | 100 | 0.05 | 15 |
-| Experiment 2 | 200 | 0.05 | 31 |
-| Experiment 3 | 300 | 0.03 | 31 |
-
-### Evaluation Results
-
-Model performance is evaluated using the following metrics:
-
-- **RMSE:** Root Mean Squared Error.
-- **MAE:** Mean Absolute Error.
-- **MAPE:** Mean Absolute Percentage Error.
-
-Lower values indicate lower prediction errors.
-
-| Experiment | RMSE | MAE | MAPE |
-|---|---:|---:|---:|
-| Experiment 1 | 521.2710 | 354.3749 | 0.4393% |
-| Experiment 2 | 596.3409 | 451.8453 | 0.5596% |
-| Experiment 3 | 584.5018 | 429.6301 | 0.5322% |
-
-Experiment 1 achieved the lowest RMSE, MAE, and MAPE among the three successful experiments. Therefore, its hyperparameter configuration was selected as the best-performing configuration in this evaluation.
-
-### Registered Model
-
-The selected model was registered in MLflow Model Registry with the following metadata:
-
-- **Model name:** `BTCUSDT-LightGBM-Best`
-- **Model version:** `1`
-- **Source run:** `LightGBM-Experiment-1`
-- **Experiment:** `BTCUSDT-LightGBM-Regression`
-
-The selected model uses these parameters:
-
-| Parameter | Value |
-|---|---:|
-| `n_estimators` | 100 |
-| `learning_rate` | 0.05 |
-| `num_leaves` | 15 |
-| `random_state` | 42 |
-| `verbosity` | -1 |
-
-Model registration provides a record of the selected model version and its source experiment.
-
-### How to Run
-
-Install the required packages:
-
-```bash
-pip install mlflow lightgbm pandas scikit-learn numpy
-```
-
-Run the training script:
-
-```bash
-python train.py
-```
-
-Launch the MLflow UI:
-
-```bash
-mlflow ui --host 0.0.0.0 --port 5000
-```
-
-In GitHub Codespaces, open port `5000` from the Ports tab to access the MLflow interface.
-
-### Limitations
-
-The current dataset contains only 75 rows. The results should therefore be treated as an initial evaluation rather than evidence of general performance across different market conditions. Further evaluation with a larger historical dataset is recommended.
-
-### Summary
-
-LightGBM model training and MLflow experiment tracking have been implemented to support model evaluation and version management. Three successful experiments were compared, and the best-performing configuration was registered as `BTCUSDT-LightGBM-Best`, version 1. This implementation provides a foundation for more systematic model experimentation and future improvements to the cryptocurrency prediction pipeline.
