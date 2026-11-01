@@ -244,16 +244,51 @@ models:/BTCUSDT-LightGBM-Best@production
 
 The model metadata is documented in `model_metadata.yaml` and tracked through DVC using `model_metadata.yaml.dvc`.
 
-## Data Versioning dengan DVC
+## Model Inference
 
-DVC digunakan bersama Git untuk melacak perubahan dataset BTC/USDT yang diperoleh melalui Binance API. Dataset disimpan sebagai file CSV bertimestamp di `data/raw/`, sehingga hasil ingestion baru tidak menimpa file sebelumnya.
+The production model can be loaded programmatically using MLflow's PyFunc interface:
 
-### Alur Penambahan Versi Data
+```python
+import mlflow
 
-1. Jalankan `python src/ingest_data.py` untuk mengambil data terbaru.
-2. Jalankan `dvc add data/raw` untuk memperbarui metadata dataset.
-3. Jalankan `git add data/raw.dvc data/.gitignore`, lalu buat commit untuk mencatat perubahan metadata.
-4. Gunakan `dvc status` untuk memeriksa status dataset.
-5. Gunakan `dvc diff <commit_awal> <commit_baru>` untuk membandingkan dua versi dataset.
+model = mlflow.pyfunc.load_model(
+    "models:/BTCUSDT-LightGBM-Best@production"
+)
+```
 
-Pada pengujian LK-05, DVC mendeteksi penambahan file `btc_usdt_1h_20261011_160749.csv` dibandingkan versi sebelumnya. Penyimpanan remote DVC belum dikonfigurasi.
+The inference test uses a feature row from:
+
+`data/processed/btc_usdt_1h_features.csv`
+
+The target column and timestamp columns are excluded from the input features.
+
+The tested model successfully generated the following next-hour closing price prediction:
+
+**81,244.34 USDT**
+
+This result verifies that the registered production model can be loaded and used for inference.
+
+## Development Workflow
+
+The project follows the GitHub Flow branching strategy.
+
+The `main` branch contains the stable project version. New development is performed in feature branches and merged through Pull Requests after validation.
+
+The workflow consists of:
+
+1. Creating a feature branch.
+2. Implementing and testing changes.
+3. Committing changes to the feature branch.
+4. Pushing the branch to GitHub.
+5. Opening a Pull Request.
+6. Reviewing and merging validated changes into `main`.
+
+## Future Improvements
+
+Potential next steps include:
+
+- Configuring a DVC remote for shared artifact storage.
+- Automating model retraining when new data becomes available.
+- Expanding model evaluation and comparison.
+- Implementing inference monitoring and data drift detection.
+- Integrating the pipeline with a CI/CD workflow.
