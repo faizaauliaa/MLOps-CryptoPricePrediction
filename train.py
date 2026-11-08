@@ -73,6 +73,13 @@ def register_model_if_valid(best_result, is_valid):
 
     print("\nMendaftarkan model ke MLflow Model Registry...")
 
+    try:
+        client.get_registered_model(model_name)
+        print("Registered model sudah tersedia.")
+    except Exception:
+        client.create_registered_model(model_name)
+        print("Registered model berhasil dibuat.")
+
     model_version = client.create_model_version(
         name=model_name,
         source=model_uri,
