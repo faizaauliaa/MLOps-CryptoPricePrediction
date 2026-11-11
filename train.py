@@ -104,7 +104,7 @@ def register_model_if_valid(best_result, is_valid):
     return model_version.version
 
 def load_data(data_path=DATA_PATH):
-    df = pd.read_csv(data_path)
+    df = pd.read_csv(data_path) 
 
     if TARGET not in df.columns:
         raise ValueError(f"Kolom target '{TARGET}' tidak ditemukan.")
@@ -169,7 +169,7 @@ def train_and_evaluate(X, y, params, experiment_number):
 
     return model, metrics, run.info.run_id
 
-
+# Menjalankan pipeline training dan evaluasi model secara otomatis.
 def run_training(data_path=DATA_PATH):
     mlflow.set_experiment(EXPERIMENT_NAME)
 
