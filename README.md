@@ -1,294 +1,243 @@
-# MLOps-CryptoPricePrediction
+## Automated End-to-End MLOps Pipeline (LK-8)
 
-A continuous training system for cryptocurrency price prediction using dynamic market data, automated preprocessing, experiment tracking, and model versioning.
+The project implements an automated end-to-end MLOps pipeline using GitHub Actions. This pipeline integrates automated testing, model training, evaluation, validation, and model registration into a single workflow.
 
-## Project Overview
+The objective is to ensure that changes pushed to the repository can be tested and evaluated automatically, reducing the need for manual execution and helping prevent undetected errors during model development.
 
-This project aims to build a machine learning system for predicting BTC/USDT prices that can adapt to changing market data through a continuous training workflow.
+### Pipeline Components
 
-The project establishes an MLOps foundation covering data ingestion, preprocessing, feature engineering, model development, experiment tracking, model registration, and inference. Git is used to manage source code and documentation, while DVC tracks dataset and model metadata.
+The automated pipeline consists of the following components:
 
-## Project Goals
+1. **Continuous Integration Trigger** — GitHub Actions automatically starts the workflow when changes are pushed to the configured branches or when a pull request is opened against `main`.
+2. **Automated Testing** — `pytest` executes the project's automated tests to verify the training pipeline and data-loading functionality.
+3. **Automated Model Training** — `train.py` trains and evaluates multiple LightGBM configurations.
+4. **Model Evaluation** — The pipeline compares evaluation metrics against predefined baseline metrics.
+5. **Model Registration** — A model that passes validation is registered in MLflow Model Registry and assigned the `staging` alias.
 
-- Retrieve cryptocurrency market data dynamically from the Binance Public Market Data API.
-- Automate data preprocessing and feature engineering.
-- Develop and evaluate machine learning models for price prediction.
-- Track experiments, parameters, metrics, and model artifacts using MLflow.
-- Manage model versions and identify the model currently used for inference.
-- Track dataset and model metadata with DVC to support reproducibility and data lineage.
-- Prepare the project for future continuous training and monitoring.
+### GitHub Actions Workflow
 
-## Repository Structure
+The workflow is defined in:
 
-```text
-MLOps-CryptoPricePrediction/
-├── data/
-│   ├── raw/
-│   │   ├── btc_usdt_1h_raw.csv
-│   │   └── btc_usdt_1h_YYYYMMDD_HHMMSS.csv
-│   └── processed/
-│       ├── btc_usdt_1h_clean.csv
-│       ├── btc_usdt_1h_features.csv
-│       └── btc_usdt_1h_preprocessed.csv
-├── models/
-├── notebooks/
-│   └── 01_initial_eda.ipynb
-├── src/
-│   ├── data/
-│   │   ├── ingestion.py
-│   │   ├── cleaning.py
-│   │   └── feature_engineering.py
-│   ├── ingest_data.py
-│   ├── preprocess.py
-│   ├── features/
-│   ├── training/
-│   ├── inference/
-│   └── monitoring/
-├── config/
-│   └── data_config.yaml
-├── .devcontainer/
-│   └── devcontainer.json
-├── .gitignore
-├── LICENSE
-├── README.md
-└── requirements.txt
+`.github/workflows/mlops-pipeline.yml`
+
+The pipeline is configured to run on pushes to the `main` and `feature/lk08-automation` branches, as well as pull requests targeting `main`.
+
+The workflow performs the following steps:
+
+```yaml
+- name: Checkout repository
+  uses: actions/checkout@v4
+
+- name: Set up Python
+  uses: actions/setup-python@v5
+  with:
+    python-version: "3.11"
+    cache: "pip"
+
+- name: Install dependencies
+  run: |
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+
+- name: Run automated tests
+  run: |
+    python -m pytest -v
+
+- name: Run model training and evaluation
+  run: |
+    python train.py
 ```
 
-Additional experiment and model-management files may be generated during development, including MLflow tracking files, DVC metadata files, and model evaluation scripts.
+The workflow uses Python 3.11 and installs the dependencies listed in `requirements.txt` before executing the tests and training process.
 
-## Data Sources
+### Automated Testing with Pytest
 
-The project uses BTC/USDT market data retrieved from the Binance Public Market Data API.
+Automated tests are implemented in:
 
-| Configuration | Value |
-|---|---|
-| Trading pair | BTCUSDT |
-| Data interval | 1 hour |
-| Initial ingestion size | 100 records |
-| Data format | CSV |
-| Raw data directory | `data/raw/` |
-| Processed data directory | `data/processed/` |
+`tests/test_training.py`
 
-The dataset contains OHLCV market information and derived features used for model training and prediction.
+The test suite verifies important parts of the training pipeline, including:
 
-## Data Ingestion
+- Whether the data-loading function returns valid features and target values.
+- Whether the system handles a dataset with a missing target column correctly.
+- Whether the training and evaluation function returns a trained model, evaluation metrics, and an MLflow run ID.
 
-Dynamic data ingestion is implemented in:
-
-`src/ingest_data.py`
-
-The script retrieves the latest BTC/USDT market data and saves it in the `data/raw/` directory. Each execution creates a timestamped file to preserve previously collected data.
-
-Filename pattern:
-
-```text
-btc_usdt_1h_YYYYMMDD_HHMMSS.csv
-```
-
-Example:
-
-```text
-data/raw/btc_usdt_1h_20260926_231644.csv
-```
-
-Run the ingestion script:
+The tests are executed using:
 
 ```bash
-python src/ingest_data.py
+python -m pytest -v
 ```
 
-## Data Preprocessing
+The test suite successfully completed with **3 passed tests**.
 
-Automated preprocessing is implemented in:
+### Automated Model Training
 
-`src/preprocess.py`
+Model training and evaluation are implemented in:
 
-The script identifies the latest raw dataset and performs the following operations:
+`train.py`
 
-1. Reads the latest raw dataset.
-2. Removes duplicate records.
-3. Converts `open_time` and `close_time` from Unix timestamp milliseconds into datetime values.
-4. Converts numerical columns to appropriate numeric types.
-5. Removes rows containing missing values.
-6. Sorts records by `open_time`.
-7. Saves the processed dataset to `data/processed/`.
+The pipeline evaluates three LightGBM configurations:
 
-Run preprocessing:
+| Configuration | `n_estimators` | `learning_rate` | `num_leaves` |
+|---|---:|---:|---:|
+| Experiment 1 | 100 | 0.05 | 15 |
+| Experiment 2 | 200 | 0.05 | 31 |
+| Experiment 3 | 300 | 0.03 | 31 |
 
-```bash
-python src/preprocess.py
-```
+Each experiment uses a chronological 80:20 train-test split to preserve the time order of the cryptocurrency data.
 
-The resulting dataset is saved as:
+The pipeline calculates three evaluation metrics:
 
-```text
-data/processed/btc_usdt_1h_preprocessed.csv
-```
+- **RMSE (Root Mean Squared Error)** — Measures the square root of the average squared prediction error.
+- **MAE (Mean Absolute Error)** — Measures the average absolute difference between actual and predicted values.
+- **MAPE (Mean Absolute Percentage Error)** — Measures the average absolute percentage error.
 
-The latest reported preprocessing output contains 100 rows, 12 columns, and no missing values.
+All experiment parameters, evaluation metrics, and model artifacts are logged to MLflow.
 
-## Data Processing Workflow
+### Automated Model Validation
 
-```text
-Binance Public Market Data API
-             |
-             v
-     Dynamic Ingestion
-      src/ingest_data.py
-             |
-             v
-         data/raw/
-             |
-             v
-     Latest Raw Dataset
-             |
-             v
-       Preprocessing
-       src/preprocess.py
-             |
-             v
-      data/processed/
-             |
-             v
-     Feature Engineering
-             |
-             v
-     Training Dataset
-             |
-             v
-     Model Training
-             |
-             v
-   MLflow Tracking and Registry
-             |
-             v
-       Model Inference
-```
+Before model registration, the pipeline compares the selected model's evaluation metrics against the predefined baseline metrics.
 
-## Data Versioning with DVC
+The baseline values are:
 
-DVC is used alongside Git to track changes to datasets and model metadata.
+| Metric | Baseline |
+|---|---:|
+| RMSE | 521.2710 |
+| MAE | 354.3749 |
+| MAPE | 0.4393% |
 
-Git manages source code, configuration, and documentation. DVC tracks data artifacts and their metadata, allowing dataset versions to be connected to the corresponding development and model history.
+The model is considered valid when its RMSE, MAE, and MAPE do not exceed the corresponding baseline values.
 
-### Dataset Versioning Workflow
+The `validate_model()` function performs this comparison automatically. If the selected model does not satisfy the validation criteria, the pipeline reports that validation has failed and skips model registration.
 
-1. Run `python src/ingest_data.py` to retrieve new market data.
-2. Run `dvc add data/raw` to update the raw dataset metadata.
-3. Stage the DVC metadata and relevant `.gitignore` changes.
-4. Commit the metadata changes to Git.
-5. Run `dvc status` to check the dataset tracking status.
-6. Use `dvc diff <commit_before> <commit_after>` to compare dataset versions.
+This validation mechanism helps prevent an underperforming model from being registered automatically.
 
-During a previous versioning test, DVC detected the addition of a timestamped dataset file:
+### Automated Model Registration
 
-`btc_usdt_1h_20261011_160749.csv`
-
-A DVC remote storage location has not yet been configured.
-
-## Exploratory Data Analysis
-
-The notebook `notebooks/01_initial_eda.ipynb` contains the initial exploratory data analysis.
-
-The analysis focuses on:
-
-- Understanding the structure of cryptocurrency market data.
-- Inspecting data quality and completeness.
-- Identifying patterns in OHLCV data.
-- Preparing considerations for feature engineering and model development.
-
-## Model Development and Experiment Tracking
-
-The project uses MLflow to track model experiments, parameters, evaluation metrics, and model artifacts.
-
-The current regression model is a LightGBM Regressor trained to predict the next-hour BTC/USDT closing price.
-
-The experiment is registered under:
-
-`BTCUSDT-LightGBM-Regression`
-
-The model registry name is:
+A model that passes validation is automatically registered in MLflow Model Registry under the name:
 
 `BTCUSDT-LightGBM-Best`
 
-### Model Version Comparison
+The registration process is implemented in the `register_model_if_valid()` function in `train.py`.
 
-Multiple model configurations were evaluated and registered to maintain a version history.
+The function performs the following operations:
 
-| Model Version | `n_estimators` | `learning_rate` | `num_leaves` | RMSE | MAE | MAPE |
-|---|---:|---:|---:|---:|---:|---:|
-| 1 | 100 | 0.05 | 15 | 521.2710 | 354.3749 | 0.4393% |
-| 4 | 200 | 0.05 | 31 | 596.3409 | 451.8453 | 0.5596% |
+1. Checks whether the registered model already exists.
+2. Creates the registered model if it does not exist.
+3. Creates a new model version using the selected MLflow run.
+4. Assigns the `staging` alias to the newly registered version.
 
-Version 1 was selected for production inference because it achieved lower RMSE, MAE, and MAPE than the alternative configuration.
-
-## Model Registry and Production Alias
-
-The selected model is registered in MLflow Model Registry as:
+The registry configuration is:
 
 | Property | Value |
 |---|---|
 | Model name | `BTCUSDT-LightGBM-Best` |
-| Selected version | `1` |
-| Production alias | `production` |
-| Champion alias | `champion` |
-| Model framework | LightGBM |
+| Experiment | `BTCUSDT-LightGBM-Regression` |
+| Registration condition | Model passes baseline validation |
+| Model alias | `staging` |
 
-MLflow 3.17.1 uses model aliases to identify model versions for deployment workflows. The `production` alias points to version 1 and is used by the inference code to load the active model.
+The `staging` alias identifies the latest model version that has passed the automated validation process. It is separate from the existing `production` alias used by the inference workflow.
 
-Model URI:
+### End-to-End Pipeline Execution
+
+The complete automated workflow can be represented as follows:
 
 ```text
-models:/BTCUSDT-LightGBM-Best@production
+       Code Change
+            |
+            v
+      Git Push / PR
+            |
+            v
+     GitHub Actions
+            |
+            v
+    Install Dependencies
+            |
+            v
+    Automated Testing
+       (pytest -v)
+            |
+            v
+   Model Training
+       (train.py)
+            |
+            v
+   Model Evaluation
+    (RMSE, MAE, MAPE)
+            |
+            v
+   Baseline Validation
+            |
+       +----+----+
+       |         |
+       v         v
+     PASS      FAIL
+       |         |
+       v         v
+ Register     Skip Model
+   Model      Registration
+       |
+       v
+ Assign staging Alias
+       |
+       v
+   Pipeline Complete
 ```
 
-The model metadata is documented in `model_metadata.yaml` and tracked through DVC using `model_metadata.yaml.dvc`.
+If testing fails, the workflow stops before model training. If model validation fails, the model is not registered. This ensures that each stage must complete successfully before the pipeline proceeds to the next relevant stage.
 
-## Model Inference
+### Simulating an Automated Pipeline Trigger
 
-The production model can be loaded programmatically using MLflow's PyFunc interface:
+The automation mechanism can be tested by making a small code change, committing the change, and pushing it to the configured feature branch.
 
-```python
-import mlflow
+Example commands:
 
-model = mlflow.pyfunc.load_model(
-    "models:/BTCUSDT-LightGBM-Best@production"
-)
+```bash
+git add .
+git commit -m "test: trigger automated MLOps pipeline"
+git push
 ```
 
-The inference test uses a feature row from:
+After the push, GitHub Actions automatically starts a new workflow run. The execution results can be inspected through the **Actions** tab in the GitHub repository.
 
-`data/processed/btc_usdt_1h_features.csv`
+A successful run should show that the dependency installation, automated tests, and model training and evaluation steps have completed successfully.
 
-The target column and timestamp columns are excluded from the input features.
+### Automation and Prevention of Silent Failures
 
-The tested model successfully generated the following next-hour closing price prediction:
+Automation helps reduce the risk of silent failures by validating the pipeline at multiple stages.
 
-**81,244.34 USDT**
+First, automated tests detect problems in data loading and training functionality before the model training process proceeds. Second, model evaluation checks whether the trained model meets the predefined performance baseline. Third, conditional model registration prevents models that fail validation from entering the model registry.
 
-This result verifies that the registered production model can be loaded and used for inference.
+The workflow also provides execution logs through GitHub Actions, making it easier to identify which stage has failed and inspect the corresponding error messages.
 
-## Development Workflow
+Therefore, automation improves the consistency, reproducibility, and reliability of the model development process while reducing dependence on manual execution.
 
-The project follows the GitHub Flow branching strategy.
+### LK-8 Implementation Summary
 
-The `main` branch contains the stable project version. New development is performed in feature branches and merged through Pull Requests after validation.
+The LK-8 implementation integrates the following components:
 
-The workflow consists of:
+| Component | Implementation |
+|---|---|
+| Automation platform | GitHub Actions |
+| Workflow configuration | `.github/workflows/mlops-pipeline.yml` |
+| Automated testing | `pytest` |
+| Training and evaluation | `train.py` |
+| Model framework | LightGBM Regressor |
+| Experiment tracking | MLflow |
+| Model validation | Baseline comparison using RMSE, MAE, and MAPE |
+| Model registry | MLflow Model Registry |
+| Registration alias | `staging` |
 
-1. Creating a feature branch.
-2. Implementing and testing changes.
-3. Committing changes to the feature branch.
-4. Pushing the branch to GitHub.
-5. Opening a Pull Request.
-6. Reviewing and merging validated changes into `main`.
+The implementation establishes an automated training and evaluation workflow triggered by repository changes. It connects software testing, model development, performance validation, and model versioning into a single pipeline.
 
 ## Future Improvements
 
 Potential next steps include:
 
-- Configuring a DVC remote for shared artifact storage.
-- Automating model retraining when new data becomes available.
-- Expanding model evaluation and comparison.
+- Configuring a DVC remote for shared dataset and artifact storage.
+- Automating data ingestion and preprocessing as part of the scheduled or event-driven pipeline.
+- Expanding model evaluation with additional metrics and validation strategies.
 - Implementing inference monitoring and data drift detection.
-- Integrating the pipeline with a CI/CD workflow.
+- Extending the GitHub Actions workflow with deployment and monitoring stages.
+- Improving model promotion from `staging` to `production` through additional validation and approval mechanisms.
