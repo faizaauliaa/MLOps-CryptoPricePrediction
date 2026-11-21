@@ -1,0 +1,104 @@
+# Orkestrasi sistem prediksi harga BTC/USDT
+#   mlflow-server : tracking server + model registry (metadata & artefak disimpan di volume)
+#   model-trainer : job sekali jalan, melatih & mendaftarkan model ke mlflow-server
+#   api-service   : API inferensi FastAPI, menarik model production dari mlflow-server
+#
+# Jalankan seluruh sistem:  docker compose up -d --build
+
+name: mlops-crypto
+
+services:
+  mlflow-server:
+    build:
+      context: ./docker/mlflow
+    image: mlops-crypto/mlflow-server:3.17.1++
+    container_name: mlflow-server
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --workers
+      - "1"
+      - --backend-store-uri
+      - sqlite:////mlflow/db/mlflow.db
+      - --serve-artifacts
+      - --artifacts-destination
+      - /mlflow/artifacts
+      - --allowed-hosts
+      - "*"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-db:/mlflow/db
+      - mlflow-artifacts:/mlflow/artifacts
+    networks:
+      - mlops-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  model-trainer:
+    build:
+      context: .
+    image: mlops-crypto/model-trainer:latest
+    container_name: model-trainer
+    command: ["python", "src/training/train_model.py"]
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow-server:5000
+      EXPERIMENT_NAME: BTCUSDT-LightGBM-Regression
+      MODEL_NAME: BTCUSDT-LightGBM-Best
+      MODEL_ALIAS: production
+      DATA_PATH: data/processed/btc_usdt_1h_features.csv
+      FORCE_RETRAIN: ${FORCE_RETRAIN:-false}
+    volumes:
+      - ./data:/app/data:ro
+    networks:
+      - mlops-net
+    depends_on:
+      mlflow-server:
+        condition: service_healthy
+    restart: "no"
+
+  api-service:
+    build:
+      context: .
+    image: mlops-crypto/api-service:latest
+    container_name: api-service
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow-server:5000
+      MODEL_NAME: BTCUSDT-LightGBM-Best
+      MODEL_ALIAS: production
+    ports:
+      - "8000:8000"
+    networks:
+      - mlops-net
+    depends_on:
+      mlflow-server:
+        condition: service_healthy
+      model-trainer:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+networks:
+  mlops-net:
+    name: mlops-network
+    driver: bridge
+
+volumes:
+  mlflow-db:
+    name: mlops-mlflow-db
+  mlflow-artifacts:
+    name: mlops-mlflow-artifacts

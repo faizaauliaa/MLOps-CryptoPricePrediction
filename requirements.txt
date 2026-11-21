@@ -8,3 +8,5 @@ lightgbm
 mlflow
 dvc
 pytest
+fastapi
+uvicorn

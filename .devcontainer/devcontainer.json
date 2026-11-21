@@ -1,5 +1,15 @@
 {
   "name": "MLOps Crypto Price Prediction",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": false
+    }
+  },
+  "forwardPorts": [5000, 8000],
+  "portsAttributes": {
+    "5000": { "label": "MLflow UI" },
+    "8000": { "label": "API Inferensi" }
+  },
   "postCreateCommand": "pip install -r requirements.txt"
 }
