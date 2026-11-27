@@ -409,3 +409,192 @@ curl -X POST http://localhost:8000/reload              # make the API pull the l
 docker compose down                                    # stop the system (data in volumes is kept)
 docker compose down -v                                 # stop and delete the volumes (full reset)
 ```
+
+## MLflow Model Serving and Horizontal Scaling
+
+This section describes how to deploy the registered BTC/USDT prediction model as a REST API using MLflow Models and how to scale the serving service horizontally using Docker Compose.
+
+### 1. Model Serving Architecture
+
+The trained LightGBM model is registered in the MLflow Model Registry under the following configuration:
+
+| Configuration | Value |
+|---|---|
+| Model Name | `BTCUSDT-LightGBM-Best` |
+| Model Alias | `production` |
+| Model Version | `1` |
+| Serving Image | `mlops-crypto/btcusdt-model-serving:latest` |
+| Internal Serving Port | `8080` |
+| Number of Replicas | `3` |
+
+The model is packaged into a Docker image using `mlflow models build-docker` and deployed as a separate service in Docker Compose.
+
+### 2. Accessing the Model Serving REST API
+
+MLflow Model Serving provides REST API endpoints for checking server availability and generating predictions.
+
+**Health Check**
+
+The `/ping` endpoint checks whether the model serving container is available.
+
+```bash
+curl http://localhost:8001/ping
+```
+
+Expected response:
+
+```text
+200 OK
+```
+
+Port `8001` is used by the standalone testing container mapped to the model serving container's internal port `8080`.
+
+**Prediction Endpoint**
+
+The `/invocations` endpoint accepts prediction requests using MLflow's DataFrame Split JSON format.
+
+Example request:
+
+```bash
+curl -X POST http://localhost:8001/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataframe_split": {
+      "columns": ["feature_1", "feature_2"],
+      "data": [[100.5, 200.3]]
+    }
+  }'
+```
+
+Replace the example feature names and values with the actual feature columns and input values expected by the registered model.
+
+Example successful response:
+
+```json
+{
+  "predictions": [81244.3439679015]
+}
+```
+
+The prediction represents the model's estimated next-period BTC/USDT closing price.
+
+**Accessing the Scaled Containers**
+
+The three `model-serving` replicas expose port `8080` internally through the Docker network. Each replica can be checked individually:
+
+```bash
+docker exec mlops-crypto-model-serving-1 \
+  python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8080/ping').status)"
+
+docker exec mlops-crypto-model-serving-2 \
+  python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8080/ping').status)"
+
+docker exec mlops-crypto-model-serving-3 \
+  python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8080/ping').status)"
+```
+
+All replicas should return HTTP status `200`.
+
+Note: The scaled service uses an internal Docker network and does not publish port `8080` directly to the host. Port `8001` above is for the standalone testing container, not the three scaled replicas.
+
+### 3. Docker Compose Horizontal Scaling Configuration
+
+The model serving service is configured in `docker-compose.yaml` with three replicas:
+
+```yaml
+model-serving:
+  image: mlops-crypto/btcusdt-model-serving:latest
+  expose:
+    - "8080"
+  networks:
+    - mlops-net
+  deploy:
+    replicas: 3
+  restart: unless-stopped
+```
+
+The `deploy.replicas` configuration specifies the desired number of model serving instances.
+
+### 4. Deploying the Model Serving Service
+
+To start the model serving service with the configured replicas, execute:
+
+```bash
+docker compose up -d --no-deps model-serving
+```
+
+To inspect the running containers:
+
+```bash
+docker compose ps model-serving
+```
+
+The expected result is three running containers:
+
+- `mlops-crypto-model-serving-1`
+- `mlops-crypto-model-serving-2`
+- `mlops-crypto-model-serving-3`
+
+### 5. Dynamically Increasing or Decreasing Replicas
+
+Docker Compose supports dynamic horizontal scaling through the `--scale` option.
+
+**Scale Up to Five Replicas**
+
+```bash
+docker compose up -d --no-deps --scale model-serving=5 model-serving
+```
+
+This increases the number of model serving instances from three to five.
+
+**Scale Down to Two Replicas**
+
+```bash
+docker compose up -d --no-deps --scale model-serving=2 model-serving
+```
+
+This reduces the number of running model serving instances to two.
+
+**Return to Three Replicas**
+
+```bash
+docker compose up -d --no-deps --scale model-serving=3 model-serving
+```
+
+The `--scale` option overrides the configured replica count for that deployment operation.
+
+### 6. Monitoring Replica Status
+
+To monitor all model serving instances:
+
+```bash
+docker compose ps model-serving
+```
+
+To inspect resource consumption:
+
+```bash
+docker stats
+```
+
+To inspect logs:
+
+```bash
+docker compose logs model-serving
+```
+
+These commands help monitor container availability, resource consumption, and serving activity.
+
+### 7. Summary
+
+The implementation demonstrates the transition from model experimentation and registration to production-oriented model serving.
+
+The registered LightGBM model is packaged into a Docker image and deployed through Docker Compose. Horizontal scaling allows multiple model serving instances to run simultaneously, providing a practical simulation of increased inference capacity.
+
+The implementation successfully demonstrates:
+
+- MLflow Model Registry integration using the production model alias.
+- REST API inference through MLflow Model Serving.
+- Docker image generation using `mlflow models build-docker`.
+- Horizontal scaling with three model serving replicas.
+- Replica monitoring and dynamic scaling using Docker Compose.

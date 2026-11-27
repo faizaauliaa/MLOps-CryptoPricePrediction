@@ -91,6 +91,15 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+  model-serving:
+    image: mlops-crypto/btcusdt-model-serving:latest
+    expose:
+      - "8080"
+    networks:
+      - mlops-net
+    deploy:
+      replicas: 3
+    restart: unless-stopped
 
 networks:
   mlops-net:
